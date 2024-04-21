@@ -1,0 +1,44 @@
+* {
+  padding: 0;
+  margin: 0;
+  color: black;
+  scrollbar-width: none;
+  font-family: "Satoshi", sans-serif;
+}
+
+
+/* For WebKit-based browsers (Chrome, Safari, Opera) */
+::-webkit-scrollbar {
+
+}
+
+/* For Internet Explorer and Edge */
+* {
+  -ms-overflow-style: none;
+}
+
+/* For Firefox */
+* {
+
+}
+
+.custom-upload-button {
+  /* Style your button here */
+  background-color: #007bff;
+  color: #ffffff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.custom-upload-button input[type="file"] {
+  /* Hide the default file input */
+  display: none;
+}
+
+.custom-upload-button span {
+  /* Style your button text here */
+  font-size: 16px;
+  font-weight: bold;
+}
