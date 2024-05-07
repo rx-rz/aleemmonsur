@@ -2,7 +2,6 @@ import {
   CaretLeftIcon,
   CaretRightIcon,
   Cross1Icon,
-  ReloadIcon,
   UploadIcon,
 } from "@radix-ui/react-icons";
 import {
@@ -27,9 +26,9 @@ export default function App() {
   const [displayedImages, setDisplayedImages] = useState<
     { url: string; is_approved: boolean; date_added: number }[] | []
   >();
-  const [picsLoading, setPicsLoading] = useState(false);
+  // const [picsLoading, setPicsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalPercentage, setTotalPercentage] = useState(0);
+  // const [totalPercentage, setTotalPercentage] = useState(0);
   const [uploadLoading, setUploadLoading] = useState(false);
   const totalPages = Math.ceil((selectedFileUrls?.length || 0) / 4);
   const [currentUrl, setCurrentUrl] = useState((pics && pics[0].url) || "");
@@ -40,7 +39,7 @@ export default function App() {
 
   useEffect(() => {
     async function getAllPics() {
-      setPicsLoading(true);
+      // setPicsLoading(true);
       const picsRef = collection(database, "images");
       const querySnapshot = await getDocs(picsRef);
       let pics: { url: string; is_approved: boolean; date_added: number }[] =
@@ -59,7 +58,7 @@ export default function App() {
       }
     }
     getAllPics();
-    setPicsLoading(false);
+    // setPicsLoading(false);
   }, []);
   useEffect(() => {
     console.log(pics);
@@ -107,10 +106,10 @@ export default function App() {
 
       uploadTask.on(
         "state_changed",
-        (snapshot) => {
-          const percentage =
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setTotalPercentage((formerValue) => (formerValue += percentage));
+        () => {
+          // const percentage =
+          //   (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          // setTotalPercentage((formerValue) => (formerValue += percentage));
           // Update progress bar or any other UI element here if needed
         },
         (error) => {
