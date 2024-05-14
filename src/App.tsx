@@ -181,7 +181,7 @@ export default function App() {
   return (
     <div className="h-screen overflow-y-scroll bg-[#f9f9f9]">
       <nav className="absolute top-0 p-4 bg-transparent flex items-center justify-center left-2 right-2 z-10 backdrop-filter backdrop-blur-sm">
-        <img src="/logo.png" className="w-[20px] h-[20px]" alt="" />
+        <img src="/logo.svg" className="w-[20px] h-[20px]" alt="" />
       </nav>
       {picsLoading === true ? (
         <div className="w-full flex justify-center mt-20">
@@ -262,7 +262,10 @@ export default function App() {
           <DialogTrigger className="flex p-2  backdrop-blur-sm bottom-4  shadow-lg text-black  rounded-full">
             <UploadIcon className="h-8 w-8 rounded-full " />
           </DialogTrigger>
-          <DialogContent className="min-h-[500px] flex flex-col max-w-[400px] w-[95%] ">
+          <DialogContent
+            aria-description="a"
+            className="min-h-[500px] flex flex-col max-w-[500px] w-[95%] "
+          >
             <div className="h-full flex-grow mt-6 text-center flex items-center justify-center border border-dotted">
               {selectedFileUrls && selectedFileUrls.length > 0 ? (
                 <div className="grid-cols-2 overflow-x-clip max-h-[400px] overflow-y-scroll  w-[98%] mx-auto grid place-content-start  gap-2 ">
@@ -316,7 +319,7 @@ export default function App() {
                 className="w-full border cursor-pointer flex gap-2 text-md font-bold items-center justify-center h-[40px]"
               >
                 {uploadLoading
-                  ? `Uploading ${noOfPhotosUploaded} / ${selectedFileUrls?.length}`
+                  ? `Uploading ${noOfPhotosUploaded} / ${selectedFileUrls?.length} ...`
                   : "Upload"}
               </button>
             </DialogFooter>
