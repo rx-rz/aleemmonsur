@@ -2,6 +2,8 @@ import {
   CaretLeftIcon,
   CaretRightIcon,
   Cross1Icon,
+  ShadowIcon,
+  ShadowInnerIcon,
   UploadIcon,
 } from "@radix-ui/react-icons";
 import {
@@ -21,25 +23,24 @@ export default function App() {
   const [pics, setPics] = useState<
     { url: string; is_approved: boolean; date_added: number }[] | []
   >();
+  const [imgStartIndex, setImageStartIndex] = useState(10);
   const [selectedFiles, setSelectedFiles] = useState<File[] | []>();
   const [selectedFileUrls, setSelectedFileUrls] = useState<string[] | []>();
   const [displayedImages, setDisplayedImages] = useState<
     { url: string; is_approved: boolean; date_added: number }[] | []
   >();
-  // const [picsLoading, setPicsLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  // const [totalPercentage, setTotalPercentage] = useState(0);
+  const [picsLoading, setPicsLoading] = useState(true);
   const [uploadLoading, setUploadLoading] = useState(false);
-  const totalPages = Math.ceil((selectedFileUrls?.length || 0) / 4);
+  const [noOfPhotosUploaded, setNoOfPhotosUploaded] = useState(0);
   const [currentUrl, setCurrentUrl] = useState((pics && pics[0].url) || "");
-  const paginateImages = (startIndex = 0) => {
-    const selected = pics?.slice(startIndex, startIndex + 4);
+  const loadMoreImages = (startIndex = imgStartIndex) => {
+    const selected = pics?.slice(0, startIndex + 10);
+    setImageStartIndex((prev) => prev + 10);
     setDisplayedImages(selected);
   };
 
   useEffect(() => {
     async function getAllPics() {
-      // setPicsLoading(true);
       const picsRef = collection(database, "images");
       const querySnapshot = await getDocs(picsRef);
       let pics: { url: string; is_approved: boolean; date_added: number }[] =
@@ -54,20 +55,21 @@ export default function App() {
         });
         pics.sort((a, b) => b.date_added - a.date_added);
         setPics(pics);
-        setDisplayedImages(pics.slice(0, 4));
+        setDisplayedImages(pics.slice(0, 10));
       }
     }
     getAllPics();
-    // setPicsLoading(false);
   }, []);
+
   useEffect(() => {
-    console.log(pics);
+    if (pics && pics.length > 0) {
+      setPicsLoading(false);
+    }
   }, [pics]);
 
   useEffect(() => {
-    paginateImages(currentPage * 4);
-  }, [currentPage, selectedFileUrls]);
-
+    console.log({ imgStartIndex });
+  }, [imgStartIndex]);
   async function compressImage(file: File) {
     const options = {
       maxSizeMB: 1,
@@ -88,10 +90,12 @@ export default function App() {
       for (let i = 0; i < selectedFiles?.length; i++) {
         const compressedImage = await compressImage(selectedFiles[i]);
         if (compressedImage) {
-          await uploadImageAsPromise(compressedImage);
-          console.log({ compressedImage });
+          await uploadImageAsPromise(compressedImage).then(() => {
+            setNoOfPhotosUploaded(i);
+          });
         }
       }
+      setNoOfPhotosUploaded(0);
     }
     setUploadLoading(false);
     location.reload();
@@ -175,43 +179,94 @@ export default function App() {
   };
 
   return (
-    <main className="h-screen overflow-y-scroll">
-      <nav className="absolute top-4 left-2 right-2 z-10">
-        <img src="/logo.png" className="w-[40px] h-[40px]" alt="" />
+    <div className="h-screen overflow-y-scroll bg-[#f9f9f9]">
+      <nav className="absolute top-0 p-4 bg-transparent flex items-center justify-center left-2 right-2 z-10 backdrop-filter backdrop-blur-sm">
+        <img src="/logo.png" className="w-[20px] h-[20px]" alt="" />
       </nav>
-      <div className="flex items-center mb-4 gap-3 absolute right-2 top-6 z-10">
-        <button
-          className="w-[20px] h-[20px] disabled:opacity-25 flex items-center justify-center rounded-full  bg-[#295639] "
-          onClick={() => {
-            // location.reload();
-            setCurrentPage(currentPage - 1);
-          }}
-          disabled={currentPage === 0}
-        >
-          <CaretLeftIcon stroke="#fff" />
-        </button>
-        <button
-          className="w-[20px] h-[20px] rounded-full disabled:opacity-25 flex items-center justify-center bg-[#295639] "
-          onClick={() => {
-            // location.reload();
-            setCurrentPage(currentPage + 1);
-          }}
-          disabled={currentPage === totalPages - 1}
-        >
-          <CaretRightIcon stroke="#fff" />
-        </button>
-      </div>
-      <div className="absolute z-10  bottom-4 left-1/2 -translate-x-1/2 peer-focus-within:scale-125 backdrop-blur-md">
+      {picsLoading === true ? (
+        <div className="w-full flex justify-center mt-20">
+          <ShadowIcon className="animate-spin" stroke="#295639" />
+        </div>
+      ) : (
+        <div className="mb-20">
+          <div className="grid   w-[90%] max-w-[700px] place-items-center mt-20 mx-auto grid-cols-2  xl:grid-cols-3  grid-flow-row gap-1">
+            {pics &&
+              displayedImages &&
+              displayedImages.map((pic, index) => (
+                <Dialog key={index}>
+                  <div className="relative w-full h-full">
+                    <DialogTrigger onClick={() => setCurrentUrl(pic.url)}>
+                      <img
+                        src={pic.url}
+                        className=" w-full flex-1  h-full object-cover aspect-square  border shadow-md"
+                      />
+                    </DialogTrigger>
+                    <DialogContent className="bg-transparent w-full border-none flex flex-col items-center">
+                      <img
+                        src={currentUrl}
+                        className=" w-[100%] border-double  h-full object-cover   shadow-lg"
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          className="w-[30px] h-[30px] rounded-full disabled:opacity-25 flex items-center justify-center bg-[#295639] "
+                          onClick={() => activateCarouselByImageUrl("back")}
+                          disabled={
+                            pics?.findIndex((pic) => currentUrl === pic.url) ===
+                            0
+                          }
+                        >
+                          <CaretLeftIcon stroke="#fff" />
+                        </button>
+
+                        <button
+                          className="w-[30px] h-[30px] rounded-full disabled:opacity-25 flex items-center justify-center bg-[#295639] "
+                          onClick={() => activateCarouselByImageUrl("forward")}
+                          disabled={
+                            pics
+                              ? pics?.findIndex(
+                                  (pic) => currentUrl === pic.url
+                                ) ===
+                                pics?.length - 1
+                              : true
+                          }
+                        >
+                          <CaretRightIcon stroke="#fff" />
+                        </button>
+                      </div>
+                    </DialogContent>
+                  </div>
+                </Dialog>
+              ))}
+          </div>
+          <div className="w-fit mx-auto mt-4 ">
+            {pics && pics.length > imgStartIndex ? (
+              <button
+                onClick={() => loadMoreImages()}
+                className="text-center flex flex-col items-center"
+              >
+                <ShadowInnerIcon
+                  className="w-6 h-6 animate-bounce"
+                  stroke="#295639"
+                />
+                <p className="text-sm font-medium">load more</p>
+              </button>
+            ) : (
+              <></>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="absolute z-10 bg-transparent right-4  bottom-4">
         <Dialog>
-          <DialogTrigger className="flex items-center gap-3 bottom-4  transition-transform duration-150  px-2 bg-white rounded-md bg-clip-padding py-2 backdrop-filter backdrop-blur-xl bg-opacity-90 border border-gray-100">
-            <UploadIcon />{" "}
-            <p className="font-satoshi text-sm font-medium">Upload Images</p>
+          <DialogTrigger className="flex p-2  backdrop-blur-sm bottom-4  shadow-lg text-black  rounded-full">
+            <UploadIcon className="h-8 w-8 rounded-full " />
           </DialogTrigger>
-          <DialogContent className="min-h-[500px] flex flex-col max-w-[400px] w-[95%] rounded-md">
-            <div className="h-full flex-grow mt-6 rounded-lg text-center flex items-center justify-center border border-dotted">
+          <DialogContent className="min-h-[500px] flex flex-col max-w-[400px] w-[95%] ">
+            <div className="h-full flex-grow mt-6 text-center flex items-center justify-center border border-dotted">
               {selectedFileUrls && selectedFileUrls.length > 0 ? (
                 <div className="grid-cols-2 overflow-x-clip max-h-[400px] overflow-y-scroll  w-[98%] mx-auto grid place-content-start  gap-2 ">
-                  <label className="w-full hover:border-[#295639] border-2 rounded-lg flex-grow py-4 text-sm flex-col cursor-pointer flex gap-2 border-dotted items-center h-full justify-center">
+                  <label className="w-full hover:border-[#295639] border-2  flex-grow py-4 text-sm flex-col cursor-pointer flex gap-2 border-dotted items-center h-full justify-center">
                     <input
                       onChange={handleFileChange}
                       className="hidden"
@@ -226,13 +281,13 @@ export default function App() {
                     <div key={index} className="relative">
                       <button
                         onClick={() => deleteFile(url)}
-                        className="absolute hover:scale-125 transition-transform duration-150 -right-1 -top-1 bg-white rounded-full p-1"
+                        className="absolute hover:scale-125 transition-transform w-5 h-5 flex items-center justify-center duration-150 -right-1 -top-1 bg-white rounded-full p-1"
                       >
                         <Cross1Icon stroke="#000" fill="#fff" />
                       </button>
                       <img
                         src={url}
-                        className="aspect-square w-full h-full object-cover rounded-md border shadow-md"
+                        className="aspect-square w-full h-full object-cover  border shadow-md"
                       />
                     </div>
                   ))}
@@ -246,7 +301,7 @@ export default function App() {
                     id="file-input"
                     type="file"
                   />
-                  <p className="max-w-xs mb-4">
+                  <p className="max-w-xs mb-4 text-sm font-medium">
                     Upload the image(s) you want to display on the homepage
                     here:
                   </p>
@@ -261,60 +316,13 @@ export default function App() {
                 className="w-full border cursor-pointer flex gap-2 text-md font-bold items-center justify-center h-[40px]"
               >
                 {uploadLoading
-                  ? "Submitting..."
-                  : // `${Math.round(
-                    //     (totalPercentage / (selectedFiles!.length * 100)) * 100
-                    //   )}% uploaded...`
-                    "Submit"}
+                  ? `Uploading ${noOfPhotosUploaded} / ${selectedFileUrls?.length}`
+                  : "Upload"}
               </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
-
-      <div className="grid  w-[90%] mt-20 mx-auto lg:grid-cols-2 grid-cols-1 xl:grid-cols-4 grid-flow-row gap-3">
-        {pics &&
-          displayedImages &&
-          displayedImages.map((pic, index) => (
-            <Dialog key={index}>
-              <div className="relative">
-                <DialogTrigger onClick={() => setCurrentUrl(pic.url)}>
-                  <img
-                    src={pic.url}
-                    className=" w-full aspect-square h-full object-cover rounded-md border shadow-md"
-                  />
-                </DialogTrigger>
-                <DialogContent className="bg-transparent border-none flex items-center">
-                  <button
-                    className="w-[20px] h-[20px] rounded-full disabled:opacity-25 flex items-center justify-center bg-[#295639] "
-                    onClick={() => activateCarouselByImageUrl("back")}
-                    disabled={
-                      pics?.findIndex((pic) => currentUrl === pic.url) === 0
-                    }
-                  >
-                    <CaretLeftIcon stroke="#fff" />
-                  </button>
-                  <img
-                    src={currentUrl}
-                    className=" w-[80%] border-double  h-full object-cover   shadow-lg"
-                  />
-                  <button
-                    className="w-[20px] h-[20px] rounded-full disabled:opacity-25 flex items-center justify-center bg-[#295639] "
-                    onClick={() => activateCarouselByImageUrl("forward")}
-                    disabled={
-                      pics
-                        ? pics?.findIndex((pic) => currentUrl === pic.url) ===
-                          pics?.length - 1
-                        : true
-                    }
-                  >
-                    <CaretRightIcon stroke="#fff" />
-                  </button>
-                </DialogContent>
-              </div>
-            </Dialog>
-          ))}
-      </div>
-    </main>
+    </div>
   );
 }
