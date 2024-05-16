@@ -15,35 +15,44 @@ import {
 import { ChangeEvent, useEffect, useState } from "react";
 import { database, storage } from "../firebase.config";
 import { ref } from "firebase/storage";
-import { getDownloadURL, uploadBytesResumable } from "firebase/storage";
-import { addDoc, collection, getDocs } from "firebase/firestore";
+import { getDownloadURL, uploadBytesResumable, deleteObject } from "firebase/storage";
+import { addDoc, collection, getDocs, updateDoc, doc, deleteDoc, query, where } from "firebase/firestore";
 import imageCompression from "browser-image-compression";
 
 export default function App() {
   const [pics, setPics] = useState<
-    { url: string; is_approved: boolean; date_added: number }[] | []
+    { url: string; is_approved: boolean; date_added: number; id: string; file_name: string }[] | []
   >();
   const [imgStartIndex, setImageStartIndex] = useState(10);
   const [selectedFiles, setSelectedFiles] = useState<File[] | []>();
   const [selectedFileUrls, setSelectedFileUrls] = useState<string[] | []>();
   const [displayedImages, setDisplayedImages] = useState<
-    { url: string; is_approved: boolean; date_added: number }[] | []
+    { url: string; is_approved: boolean; date_added: number; id: string; file_name: string }[] | []
   >();
+
   const [picsLoading, setPicsLoading] = useState(true);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [noOfPhotosUploaded, setNoOfPhotosUploaded] = useState(0);
-  const [currentUrl, setCurrentUrl] = useState((pics && pics[0].url) || "");
+  const [isApproved, setIsApproved] = useState(false)
+  const [isDeleted, setIsDeleted] = useState(true)
+  const [currentUrl, setCurrentUrl] = useState((pics && pics.length > 0 && pics[0].url) || "");
   const loadMoreImages = (startIndex = imgStartIndex) => {
     const selected = pics?.slice(0, startIndex + 10);
     setImageStartIndex((prev) => prev + 10);
     setDisplayedImages(selected);
+
   };
+
 
   useEffect(() => {
     async function getAllPics() {
+
       const picsRef = collection(database, "images");
-      const querySnapshot = await getDocs(picsRef);
-      let pics: { url: string; is_approved: boolean; date_added: number }[] =
+      const imagesFromDb = window.location.pathname === "/admin" ? query(picsRef, where("is_approved", "==", false)) : query(picsRef, where("is_approved", "==", true))
+      const querySnapshot = await getDocs(imagesFromDb);
+      let pics: { url: string; is_approved: boolean; date_added: number; file_name: string; id: string }[] =
+        [];
+      let adminPics: { url: string; is_approved: boolean; date_added: number; file_name: string; id: string }[] =
         [];
       if (querySnapshot.docs.length > 0) {
         querySnapshot.forEach((doc) => {
@@ -51,11 +60,24 @@ export default function App() {
             url: doc.data().url,
             is_approved: doc.data().is_approved,
             date_added: doc.data().date_added,
+            file_name: doc.data().file_name,
+            id: doc.id,
+          });
+          adminPics.push({
+            url: doc.data().url,
+            is_approved: doc.data().is_approved,
+            date_added: doc.data().date_added,
+            file_name: doc.data().file_name,
+            id: doc.id
           });
         });
-        pics.sort((a, b) => b.date_added - a.date_added);
-        setPics(pics);
-        setDisplayedImages(pics.slice(0, 10));
+        if(window.location.pathname === "/admin"){
+          setPics(adminPics.sort((a, b) => b.date_added - a.date_added));
+          setDisplayedImages(adminPics.sort((a, b) => b.date_added - a.date_added));
+        }else{
+        setPics(pics.sort((a, b) => b.date_added - a.date_added));
+        setDisplayedImages(pics.sort((a, b) => b.date_added - a.date_added));
+      }
       }
     }
     getAllPics();
@@ -126,6 +148,7 @@ export default function App() {
             url: downloadURL,
             is_approved: false,
             date_added: Date.now(),
+            file_name: imageFile.name
           });
           resolve();
         }
@@ -134,6 +157,7 @@ export default function App() {
   }
   function activateCarouselByImageUrl(action: "back" | "forward") {
     if (pics) {
+      setIsApproved(false)
       const activeImage = pics?.findIndex((pic) => currentUrl === pic.url);
       if (action === "back") {
         setCurrentUrl(pics[activeImage - 1].url);
@@ -172,11 +196,124 @@ export default function App() {
       setSelectedFileUrls(fileUrls);
     }
   };
+  const approveImage = async (id: string) => {
+    setIsApproved(true)
+    await updateDoc(doc(database, "images", id), {
+      is_approved: true
+    })
+    const newPics = pics?.filter((pic) => pic.id === id)
+    setPics(newPics)
+    setDisplayedImages(newPics)
+  }
+
+  const deleteImage = async (id: string, file_name: string) => {
+    const docRef = ref(storage, `wedding/${file_name}`)
+    await deleteObject(docRef).then(async () => {
+      await deleteDoc(doc(database, "images", id))
+      console.log("Image yeeted, doc deleted.")
+    })
+    const newPics = pics?.filter((pic) => pic.id === id)
+    setPics(newPics)
+    setDisplayedImages(newPics)
+  }
+
 
   const deleteFile = (url: string) => {
     const newFiles = selectedFileUrls?.filter((fileUrl) => fileUrl !== url);
     setSelectedFileUrls(newFiles);
   };
+
+  if(window.location.pathname === "/admin"){
+    return (
+      <div className="h-screen overflow-y-scroll bg-[#f9f9f9]">
+        <nav className="absolute top-0 p-4 bg-transparent flex items-center justify-center left-2 right-2 z-10 backdrop-filter backdrop-blur-sm">
+          <a href="/admin">
+          <img src="/logo.svg" className="w-[20px] h-[20px]" alt="" />
+          </a>
+        </nav>
+        {picsLoading === true ? (
+          <div className="w-full flex justify-center mt-20">
+            <ShadowIcon className="animate-spin" stroke="#295639" />
+          </div>
+        ) : (
+          <div className="mb-20">
+            <div className="grid   w-[90%] max-w-[700px] place-items-center mt-20 mx-auto grid-cols-2  xl:grid-cols-3  grid-flow-row gap-1">
+              {pics &&
+                displayedImages &&
+                displayedImages.map((pic, index) => (
+                  <Dialog key={index}>
+                    <div className="relative w-full h-full">
+                      <DialogTrigger onClick={() => setCurrentUrl(pic.url)}>
+                        <img
+                          src={pic.url}
+                          className=" w-full flex-1  h-full object-cover aspect-square  border shadow-md"
+                        />
+                      </DialogTrigger>
+                      <DialogContent className="bg-transparent w-full border-none flex flex-col items-center">
+                        <img
+                          src={currentUrl}
+                          className=" w-[100%] border-double  h-full object-cover   shadow-lg"
+                        />
+                        <div className="flex gap-6 items-center">
+                          <button
+                            className="w-[30px] h-[30px] rounded-full disabled:opacity-25 flex items-center justify-center bg-[#295639] "
+                            onClick={() => activateCarouselByImageUrl("back")}
+                            disabled={
+                              pics?.findIndex((pic) => currentUrl === pic.url) ===
+                              0
+                            }
+                          >
+                            <CaretLeftIcon stroke="#fff" />
+                          </button>
+                            <div className="flex flex-col gap-3 text-sm font-bold text-white">
+                              <button onClick={() => approveImage(pic.id)}>
+                                {isApproved ? "Approved" : "Approve"}
+                              </button>
+                              <button onClick={() => deleteImage(pic.id, pic.file_name)} className="text-red-500">
+{isDeleted ? "Deleted" : "Delete"}
+                              </button>
+                            </div>
+                          <button
+                            className="w-[30px] h-[30px] rounded-full disabled:opacity-25 flex items-center justify-center bg-[#295639] "
+                            onClick={() => activateCarouselByImageUrl("forward")}
+                            disabled={
+                              pics
+                                ? pics?.findIndex(
+                                    (pic) => currentUrl === pic.url
+                                  ) ===
+                                  pics?.length - 1
+                                : true
+                            }
+                          >
+                            <CaretRightIcon stroke="#fff" />
+                          </button>
+                        </div>
+                      </DialogContent>
+                    </div>
+                  </Dialog>
+                ))}
+            </div>
+            <div className="w-fit mx-auto mt-4 ">
+              {pics && pics.length > imgStartIndex ? (
+                <button
+                  onClick={() => loadMoreImages()}
+                  className="text-center flex flex-col items-center"
+                >
+                  <ShadowInnerIcon
+                    className="w-6 h-6 animate-bounce"
+                    stroke="#295639"
+                  />
+                  <p className="text-sm font-medium">load more</p>
+                </button>
+              ) : (
+                <></>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )  
+  }
 
   return (
     <div className="h-screen overflow-y-scroll bg-[#f9f9f9]">
@@ -189,7 +326,7 @@ export default function App() {
         </div>
       ) : (
         <div className="mb-20">
-          <div className="grid   w-[90%] max-w-[700px] place-items-center mt-20 mx-auto grid-cols-2  xl:grid-cols-3  grid-flow-row gap-1">
+          <div className="grid   w-[98%] max-w-[700px] place-items-center mt-20 mx-auto grid-cols-2  xl:grid-cols-3  grid-flow-row ">
             {pics &&
               displayedImages &&
               displayedImages.map((pic, index) => (
