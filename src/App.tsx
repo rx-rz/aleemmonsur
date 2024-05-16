@@ -207,6 +207,7 @@ export default function App() {
   }
 
   const deleteImage = async (id: string, file_name: string) => {
+
     const docRef = ref(storage, `wedding/${file_name}`)
     await deleteObject(docRef).then(async () => {
       await deleteDoc(doc(database, "images", id))
@@ -215,6 +216,7 @@ export default function App() {
     const newPics = pics?.filter((pic) => pic.id === id)
     setPics(newPics)
     setDisplayedImages(newPics)
+    setIsDeleted(true)
   }
 
 
